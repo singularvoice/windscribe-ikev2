@@ -45,6 +45,7 @@ window.wsike { background: #0a1424; }
 .wsike-header.error { background: linear-gradient(170deg, #6d1d22 0%, #24121a 100%); }
 .wsike-brand { font-weight: 800; font-size: 17px; color: white; letter-spacing: 1px; }
 .wsike-state { font-weight: 800; font-size: 28px; color: #c8ced8; }
+.wsike-state.long { font-size: 22px; }
 .wsike-state.connected { color: #55ff8a; }
 .wsike-state.connecting { color: #ffd166; }
 .wsike-state.error { color: #ff7b85; }
@@ -250,14 +251,14 @@ class MainWindow(Adw.ApplicationWindow):
 
         mid = Gtk.Box(spacing=12, margin_top=10)
         left = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, hexpand=True, valign=Gtk.Align.CENTER, spacing=4)
-        state_line = Gtk.Box(spacing=8)
+        # The state word and the badges sit on separate lines so that long
+        # states ("RECONNECTING") never force the window wider.
         self.state_label = Gtk.Label(label="OFF", css_classes=["wsike-state"], xalign=0)
-        state_line.append(self.state_label)
-        badge_box = Gtk.Box(spacing=4, valign=Gtk.Align.CENTER)
+        left.append(self.state_label)
+        badge_box = Gtk.Box(spacing=4, halign=Gtk.Align.START)
         badge_box.append(Gtk.Label(label="IKEv2", css_classes=["wsike-badge"]))
-        badge_box.append(Gtk.Label(label="500/4500", css_classes=["wsike-badge"]))
-        state_line.append(badge_box)
-        left.append(state_line)
+        badge_box.append(Gtk.Label(label="UDP 500/4500", css_classes=["wsike-badge"]))
+        left.append(badge_box)
         self.sub_label = Gtk.Label(label="", css_classes=["wsike-sub"], xalign=0, wrap=True,
                                    wrap_mode=Pango.WrapMode.WORD_CHAR, max_width_chars=30)
         left.append(self.sub_label)
@@ -471,14 +472,16 @@ class MainWindow(Adw.ApplicationWindow):
         ip = st.get("public_ip") if state == "connected" else None
         self.ip_label.set_label(ip or (st.get("vip") or "") if state == "connected" else "")
         if state == "connected":
-            dns = ", ".join(st.get("dns") or [])
-            self.footer.set_label(f"Server {st.get('server_ip')}  ·  Tunnel IP {st.get('vip')}  ·  DNS {dns}")
+            parts = [f"{label} {value}" for label, value in (
+                ("Server", st.get("server_ip")), ("Tunnel IP", st.get("vip")),
+                ("DNS", ", ".join(st.get("dns") or []))) if value]
+            self.footer.set_label("  ·  ".join(parts) or f"wsike {__version__}")
         else:
             self.footer.set_label(f"wsike {__version__}")
 
     def apply_state(self, state, sub=""):
         labels = {"disconnected": "OFF", "connecting": "CONNECTING", "connected": "ON",
-                  "reconnecting": "RECONNECTING", "disconnecting": "DISCONNECTING", "error": "OFF"}
+                  "reconnecting": "RECONNECTING", "disconnecting": "DISCONNECTING", "error": "FAILED"}
         css = {"connected": "connected", "connecting": "connecting", "reconnecting": "connecting",
                "disconnecting": "connecting", "error": "error"}.get(state)
         for w in (self.header, self.state_label, self.power):
@@ -486,7 +489,12 @@ class MainWindow(Adw.ApplicationWindow):
                 w.remove_css_class(c)
             if css:
                 w.add_css_class(css)
-        self.state_label.set_label(labels.get(state, state.upper()))
+        text = labels.get(state, state.upper())
+        self.state_label.set_label(text)
+        if len(text) > 3:
+            self.state_label.add_css_class("long")
+        else:
+            self.state_label.remove_css_class("long")
         self.sub_label.set_label(sub)
         self.sub_label.set_visible(bool(sub))
 
@@ -597,13 +605,14 @@ class PreferencesDialog(Adw.PreferencesDialog):
 
         # General / connection --------------------------------------------
         conn = Adw.PreferencesPage(title="Connection", icon_name="network-vpn-symbolic")
-        fw_grp = Adw.PreferencesGroup(title="Firewall",
-                                      description="Blocks all traffic outside the tunnel so nothing leaks "
-                                                  "if the VPN drops.")
+        fw_grp = Adw.PreferencesGroup(
+            title="Firewall",
+            description="Blocks all traffic outside the tunnel so nothing leaks if the VPN drops. "
+                        "Automatic: on while connected, and kept on after an unexpected drop. "
+                        "Always on: also blocks while disconnected and after a reboot.")
+        # no subtitle: it would squeeze the selected value to "A…" on narrow windows
         self.fw_mode = Adw.ComboRow(title="Firewall mode",
                                     model=Gtk.StringList.new(["Manual", "Automatic", "Always on"]))
-        self.fw_mode.set_subtitle("Automatic: on while connected · Always on: blocks even when "
-                                  "disconnected and after reboot")
         self.allow_lan = Adw.SwitchRow(title="Allow LAN traffic",
                                        subtitle="Printers, NAS, Chromecast… stay reachable")
         fw_grp.add(self.fw_mode)
