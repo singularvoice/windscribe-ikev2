@@ -1,0 +1,180 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1120 790" width="1120" height="790" font-family="Inter, 'Segoe UI', Ubuntu, 'Helvetica Neue', Arial, sans-serif">
+  <title>wsike architecture</title>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0d1a2e"/>
+      <stop offset="1" stop-color="#08111f"/>
+    </linearGradient>
+    <linearGradient id="daemon" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0a5cff"/>
+      <stop offset="1" stop-color="#052c71"/>
+    </linearGradient>
+    <linearGradient id="tunnel" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#0a5cff"/>
+      <stop offset="1" stop-color="#23b85c"/>
+    </linearGradient>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#8ea0bb"/>
+    </marker>
+    <marker id="arrowg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#55ff8a"/>
+    </marker>
+    <marker id="arrowr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#ff7b85"/>
+    </marker>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000" flood-opacity="0.45"/>
+    </filter>
+  </defs>
+
+  <rect width="1120" height="790" rx="22" fill="url(#bg)"/>
+
+  <!-- Title -->
+  <text x="40" y="52" fill="#ffffff" font-size="26" font-weight="800" letter-spacing="1">WSIKE</text>
+  <text x="140" y="52" fill="#8ea0bb" font-size="17">how the pieces fit together</text>
+  <g transform="translate(905,30)">
+    <rect width="78" height="24" rx="7" fill="#ffffff" fill-opacity="0.12"/>
+    <text x="39" y="17" fill="#dfe7f3" font-size="12" font-weight="700" text-anchor="middle">IKEv2</text>
+    <rect x="86" width="100" height="24" rx="7" fill="#ffffff" fill-opacity="0.12"/>
+    <text x="136" y="17" fill="#dfe7f3" font-size="12" font-weight="700" text-anchor="middle">UDP 500/4500</text>
+  </g>
+
+  <!-- Column headings -->
+  <text x="40" y="100" fill="#8ea0bb" font-size="12" font-weight="700" letter-spacing="2">YOUR DESKTOP SESSION</text>
+  <text x="375" y="100" fill="#8ea0bb" font-size="12" font-weight="700" letter-spacing="2">PRIVILEGED SERVICE</text>
+  <text x="795" y="100" fill="#8ea0bb" font-size="12" font-weight="700" letter-spacing="2">LINUX &amp; SYSTEM SERVICES</text>
+
+  <!-- ===== Column 1: user session ===== -->
+  <g filter="url(#shadow)">
+    <rect x="40" y="115" width="260" height="120" rx="14" fill="#13223a" stroke="#24395c"/>
+  </g>
+  <circle cx="78" cy="152" r="20" fill="#55ff8a"/>
+  <path d="M78 141 v10 M71 146 a10 10 0 1 0 14 0" stroke="#003318" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <text x="110" y="148" fill="#ffffff" font-size="16" font-weight="700">wsike app</text>
+  <text x="110" y="166" fill="#8ea0bb" font-size="12">GTK4 · libadwaita</text>
+  <text x="58" y="198" fill="#c8d3e3" font-size="12">Power button, locations, firewall</text>
+  <text x="58" y="216" fill="#c8d3e3" font-size="12">toggle, preferences, debug log</text>
+
+  <g filter="url(#shadow)">
+    <rect x="40" y="255" width="260" height="78" rx="14" fill="#13223a" stroke="#24395c"/>
+  </g>
+  <text x="58" y="285" fill="#ffffff" font-size="16" font-weight="700" font-family="ui-monospace, 'DejaVu Sans Mono', monospace">wsikectl</text>
+  <text x="58" y="307" fill="#8ea0bb" font-size="12">CLI: connect, status, settings,</text>
+  <text x="58" y="323" fill="#8ea0bb" font-size="12">login, logs</text>
+
+  <rect x="40" y="353" width="260" height="52" rx="12" fill="none" stroke="#24395c" stroke-dasharray="5 5"/>
+  <text x="58" y="375" fill="#8ea0bb" font-size="12">Your locations</text>
+  <text x="58" y="393" fill="#c8d3e3" font-size="11.5" font-family="ui-monospace, 'DejaVu Sans Mono', monospace">~/.config/wsike/servers.json</text>
+
+  <!-- socket arrow -->
+  <path d="M300 200 C 330 200, 335 230, 362 230" stroke="#8ea0bb" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+  <path d="M300 294 C 330 294, 335 262, 362 262" stroke="#8ea0bb" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+  <text x="40" y="434" fill="#8ea0bb" font-size="11.5">→ talks to the daemon with JSON over</text>
+  <text x="40" y="452" fill="#c8d3e3" font-size="11" font-family="ui-monospace, 'DejaVu Sans Mono', monospace">/run/wsike/wsike.sock</text>
+  <text x="40" y="470" fill="#8ea0bb" font-size="11.5">(caller checked with SO_PEERCRED)</text>
+
+  <!-- ===== Column 2: daemon ===== -->
+  <g filter="url(#shadow)">
+    <rect x="365" y="115" width="380" height="370" rx="18" fill="url(#daemon)"/>
+  </g>
+  <text x="389" y="148" fill="#ffffff" font-size="18" font-weight="800">wsike-daemon</text>
+  <text x="389" y="168" fill="#cfe0ff" font-size="12">root · systemd unit · owns all privileged work</text>
+
+  <g font-size="13" fill="#ffffff">
+    <rect x="389" y="185" width="332" height="44" rx="10" fill="#000" fill-opacity="0.22"/>
+    <text x="405" y="205" font-weight="700">State machine &amp; monitor</text>
+    <text x="405" y="221" fill="#cfe0ff" font-size="11.5">connect · reconnect · route self-heal · boot connect</text>
+
+    <rect x="389" y="237" width="332" height="44" rx="10" fill="#000" fill-opacity="0.22"/>
+    <text x="405" y="257" font-weight="700">strongSwan driver</text>
+    <text x="405" y="273" fill="#cfe0ff" font-size="11.5">writes swanctl config, initiates / terminates SAs</text>
+
+    <rect x="389" y="289" width="332" height="44" rx="10" fill="#000" fill-opacity="0.22"/>
+    <text x="405" y="309" font-weight="700">Firewall manager</text>
+    <text x="405" y="325" fill="#cfe0ff" font-size="11.5">kill switch, DNS &amp; IPv6 leak rules, atomic swap</text>
+
+    <rect x="389" y="341" width="332" height="44" rx="10" fill="#000" fill-opacity="0.22"/>
+    <text x="405" y="361" font-weight="700">Routing manager</text>
+    <text x="405" y="377" fill="#cfe0ff" font-size="11.5">policy rules, tunnel table, split tunneling</text>
+
+    <rect x="389" y="393" width="332" height="44" rx="10" fill="#000" fill-opacity="0.22"/>
+    <text x="405" y="413" font-weight="700">DNS manager</text>
+    <text x="405" y="429" fill="#cfe0ff" font-size="11.5">VPN DNS on wsike0, routing domain "~."</text>
+  </g>
+  <text x="389" y="467" fill="#cfe0ff" font-size="11.5">credentials: /etc/wsike (root only, 0600)</text>
+
+  <!-- ===== Column 3: system ===== -->
+  <g font-size="13">
+    <g filter="url(#shadow)"><rect x="790" y="185" width="290" height="44" rx="10" fill="#13223a" stroke="#24395c"/></g>
+    <text x="806" y="205" fill="#ffffff" font-weight="700">XFRM interface <tspan font-family="ui-monospace, 'DejaVu Sans Mono', monospace" fill="#55ff8a">wsike0</tspan></text>
+    <text x="806" y="221" fill="#8ea0bb" font-size="11.5">route-based IPsec, bound by if_id 0x5753</text>
+
+    <g filter="url(#shadow)"><rect x="790" y="237" width="290" height="44" rx="10" fill="#13223a" stroke="#24395c"/></g>
+    <text x="806" y="257" fill="#ffffff" font-weight="700">charon-systemd (strongSwan)</text>
+    <text x="806" y="273" fill="#8ea0bb" font-size="11.5">IKEv2 · EAP-MSCHAPv2 · Let's Encrypt cert</text>
+
+    <g filter="url(#shadow)"><rect x="790" y="289" width="290" height="44" rx="10" fill="#13223a" stroke="#24395c"/></g>
+    <text x="806" y="309" fill="#ffffff" font-weight="700">nftables <tspan font-family="ui-monospace, 'DejaVu Sans Mono', monospace" fill="#ffd166">inet wsike</tspan></text>
+    <text x="806" y="325" fill="#8ea0bb" font-size="11.5">output / input / forward filter chains</text>
+
+    <g filter="url(#shadow)"><rect x="790" y="341" width="290" height="44" rx="10" fill="#13223a" stroke="#24395c"/></g>
+    <text x="806" y="361" fill="#ffffff" font-weight="700">Policy routing</text>
+    <text x="806" y="377" fill="#8ea0bb" font-size="11.5">ip rules 5740–5752 · table 5753 → wsike0</text>
+
+    <g filter="url(#shadow)"><rect x="790" y="393" width="290" height="44" rx="10" fill="#13223a" stroke="#24395c"/></g>
+    <text x="806" y="413" fill="#ffffff" font-weight="700">systemd-resolved</text>
+    <text x="806" y="429" fill="#8ea0bb" font-size="11.5">all lookups routed to the VPN's DNS</text>
+  </g>
+
+  <g stroke="#8ea0bb" stroke-width="2" fill="none" marker-end="url(#arrow)">
+    <path d="M721 207 L 786 207"/>
+    <path d="M721 259 L 786 259"/>
+    <path d="M721 311 L 786 311"/>
+    <path d="M721 363 L 786 363"/>
+    <path d="M721 415 L 786 415"/>
+  </g>
+
+  <!-- ===== Packet path ===== -->
+  <text x="40" y="530" fill="#8ea0bb" font-size="12" font-weight="700" letter-spacing="2">WHERE YOUR TRAFFIC GOES</text>
+  <rect x="40" y="545" width="1040" height="215" rx="18" fill="#0f1d33" stroke="#1d3150"/>
+
+  <!-- apps -->
+  <g filter="url(#shadow)"><rect x="62" y="585" width="132" height="62" rx="12" fill="#13223a" stroke="#24395c"/></g>
+  <text x="128" y="612" fill="#ffffff" font-size="14" font-weight="700" text-anchor="middle">Your apps</text>
+  <text x="128" y="631" fill="#8ea0bb" font-size="11.5" text-anchor="middle">browser, games…</text>
+
+  <!-- wsike0 -->
+  <g filter="url(#shadow)"><rect x="248" y="585" width="150" height="62" rx="12" fill="#13223a" stroke="#55ff8a" stroke-opacity="0.7"/></g>
+  <text x="323" y="612" fill="#55ff8a" font-size="14" font-weight="700" text-anchor="middle" font-family="ui-monospace, 'DejaVu Sans Mono', monospace">wsike0</text>
+  <text x="323" y="631" fill="#8ea0bb" font-size="11.5" text-anchor="middle">default route, table 5753</text>
+
+  <!-- encrypt -->
+  <g filter="url(#shadow)"><rect x="452" y="585" width="160" height="62" rx="12" fill="#13223a" stroke="#24395c"/></g>
+  <text x="532" y="610" fill="#ffffff" font-size="14" font-weight="700" text-anchor="middle">Encrypt (ESP)</text>
+  <text x="532" y="629" fill="#8ea0bb" font-size="11.5" text-anchor="middle">AES-256-GCM, marked</text>
+  <text x="532" y="643" fill="#ffd166" font-size="11" text-anchor="middle" font-family="ui-monospace, 'DejaVu Sans Mono', monospace">0x5753</text>
+
+  <!-- nic -->
+  <g filter="url(#shadow)"><rect x="666" y="585" width="140" height="62" rx="12" fill="#13223a" stroke="#24395c"/></g>
+  <text x="736" y="612" fill="#ffffff" font-size="14" font-weight="700" text-anchor="middle">Wi-Fi / Ethernet</text>
+  <text x="736" y="631" fill="#8ea0bb" font-size="11.5" text-anchor="middle">only marked packets pass</text>
+
+  <!-- server -->
+  <g filter="url(#shadow)"><rect x="860" y="585" width="196" height="62" rx="12" fill="url(#daemon)"/></g>
+  <text x="958" y="612" fill="#ffffff" font-size="14" font-weight="700" text-anchor="middle">Windscribe server</text>
+  <text x="958" y="631" fill="#cfe0ff" font-size="11.5" text-anchor="middle">→ the internet, with its IP</text>
+
+  <g stroke="#55ff8a" stroke-width="2.5" fill="none" marker-end="url(#arrowg)">
+    <path d="M194 616 L 244 616"/>
+    <path d="M398 616 L 448 616"/>
+    <path d="M612 616 L 662 616"/>
+    <path d="M806 616 L 856 616"/>
+  </g>
+
+  <!-- blocked path -->
+  <path d="M128 647 C 128 705, 700 705, 736 651" stroke="#ff7b85" stroke-width="2" stroke-dasharray="6 6" fill="none" marker-end="url(#arrowr)"/>
+  <circle cx="418" cy="691" r="12" fill="#ff7b85" stroke="#0f1d33" stroke-width="3"/>
+  <path d="M412 685 l12 12 M424 685 l-12 12" stroke="#2a0b10" stroke-width="2.5" stroke-linecap="round"/>
+  <text x="418" y="726" fill="#ff7b85" font-size="12.5" font-weight="700" text-anchor="middle">Anything trying to skip the tunnel is rejected by the kill switch</text>
+  <text x="418" y="744" fill="#8ea0bb" font-size="11.5" text-anchor="middle">plain DNS to other servers and all IPv6 are blocked too</text>
+</svg>
