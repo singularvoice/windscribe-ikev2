@@ -84,6 +84,10 @@ class Daemon:
         self.since = None
         self.public_ip = None
         self.want_connected = False
+        # Automatic firewall mode: once connected, keep blocking after an
+        # unexpected loss until the user explicitly disconnects.
+        self.hold_firewall = False
+        self.has_credentials = bool(self.credentials())
         self.stop_event = threading.Event()
         backend.log = self.log
 
@@ -106,9 +110,11 @@ class Daemon:
                 self.log(f"state: {self.state} -> {state}" + (f" ({error})" if error else ""))
             self.state = state
             self.error = error
-            if state == "connected" and self.since is None:
-                self.since = time.time()
-            if state in ("disconnected", "error"):
+            if state == "connected":
+                self.hold_firewall = True
+                if self.since is None:
+                    self.since = time.time()
+            if state in ("connecting", "disconnected", "error"):
                 self.since = None
                 self.public_ip = None
         self.refresh_firewall()
@@ -119,8 +125,8 @@ class Daemon:
             return False      # "only these through the VPN" cannot block the rest
         if s["firewall_mode"] == "always_on" or s["firewall_on"]:
             return True
-        return s["firewall_mode"] == "automatic" and self.state in (
-            "connecting", "connected", "reconnecting")
+        return s["firewall_mode"] == "automatic" and (self.hold_firewall or self.state in (
+            "connecting", "connected", "reconnecting"))
 
     def split_networks(self):
         nets = []
@@ -180,7 +186,8 @@ class Daemon:
                     split_mode=self.settings["split_mode"], split_v4=bypass,
                     custom_dns=self.settings.get("custom_dns") or [])
             except Exception as e:
-                self.log(f"connect failed: {e}")
+                cancelled = not self.want_connected     # user pressed disconnect
+                self.log(f"connect {'cancelled' if cancelled else 'failed'}: {e}")
                 try:
                     self.backend.disconnect()
                 except Exception as e2:
@@ -188,7 +195,10 @@ class Daemon:
                 self.want_connected = False
                 with self.lock:
                     self.info = {}
-                self.set_state("error", str(e))
+                if cancelled:
+                    self.set_state("disconnected")
+                else:
+                    self.set_state("error", str(e))
                 return
             if not self.want_connected:      # user pressed disconnect meanwhile
                 self.backend.disconnect()
@@ -218,9 +228,21 @@ class Daemon:
         self.want_connected = False
         if self.state == "disconnected":
             return
+        if self.state == "error":
+            # nothing is up; just release the firewall hold (explicit user action)
+            with self.lock:
+                self.hold_firewall = False
+            self.set_state("disconnected")
+            return
 
         def worker():
             self.set_state("disconnecting")
+            # makes a pending initiate/re-initiate return now instead of
+            # waiting for its timeout while holding op_lock
+            try:
+                self.backend.abort()
+            except Exception as e:
+                self.log(f"abort: {e}")
             with self.op_lock:
                 try:
                     self.backend.disconnect()
@@ -228,6 +250,7 @@ class Daemon:
                     self.log(f"disconnect error: {e}")
                 with self.lock:
                     self.info = {}
+                    self.hold_firewall = False
                 if self.settings["firewall_mode"] == "automatic":
                     self.settings["firewall_on"] = False
                     self.save_settings()
@@ -259,7 +282,10 @@ class Daemon:
                 if failures <= 2:          # let charon's DPD restart do its job first
                     continue
                 self.log(f"tunnel down, re-initiating (attempt {failures - 2})")
-                if self.backend.reinitiate():
+                info = self.backend.reinitiate(self.settings.get("custom_dns") or [])
+                if info:
+                    with self.lock:
+                        self.info.update(info)
                     self.set_state("connected")
                     failures = 0
             except Exception as e:
@@ -291,7 +317,7 @@ class Daemon:
                 "firewall_mode": self.settings["firewall_mode"],
                 "rx": rx,
                 "tx": tx,
-                "has_credentials": bool(self.credentials()),
+                "has_credentials": self.has_credentials,
             }
 
     def handle(self, cmd, args):
@@ -311,6 +337,8 @@ class Daemon:
             if self.settings["firewall_mode"] == "always_on":
                 raise ValueError("Firewall is in Always On mode")
             self.settings["firewall_on"] = bool(args.get("on"))
+            if not self.settings["firewall_on"]:
+                self.hold_firewall = False
             self.save_settings()
             self.refresh_firewall()
             return self.killswitch_active()
@@ -321,6 +349,7 @@ class Daemon:
             if any(c in user + pw for c in "\r\n\0"):
                 raise ValueError("invalid characters in credentials")
             _write_json(CREDS_FILE, {"username": user, "password": pw})
+            self.has_credentials = True
             self.log("credentials updated")
             return {"username": user}
         if cmd == "get_credentials":
@@ -329,6 +358,7 @@ class Daemon:
         if cmd == "clear_credentials":
             if os.path.exists(CREDS_FILE):
                 os.unlink(CREDS_FILE)
+            self.has_credentials = False
             return True
         if cmd == "ping":
             return self.ping_hosts(args.get("hosts", []))
@@ -370,10 +400,11 @@ class Daemon:
 
     def ping_hosts(self, hosts):
         results = {}
+        bypass = self.state not in ("connected", "reconnecting")
 
         def one(h):
             try:
-                ip = netutil.resolve(h)[0]
+                ip = netutil.resolve(h, bypass=bypass)[0]
                 results[h] = netutil.ping(ip)
             except Exception:
                 results[h] = None

@@ -15,6 +15,8 @@ Not affiliated with Windscribe.
   - *Manual*: the toggle stays where you put it.
   - *Automatic*: on while connected/reconnecting, off after you disconnect.
   - *Always on*: blocks even when disconnected and across reboots.
+  In Automatic mode an *unexpected* drop keeps the firewall up until you disconnect
+  or switch it off, so nothing leaks while you are away.
   Option: *Allow LAN traffic*.
 - **No DNS leaks**: the VPN's DNS is set on `wsike0` with routing domain `~.` in
   systemd-resolved. While connected, plain DNS and DoT (53/853) to any other
@@ -36,8 +38,28 @@ sudo ./install.sh
 ```
 
 The installer adds `charon-systemd`, `strongswan-swanctl`, the EAP plugins and the
-GTK/libadwaita bindings. It also installs the Let's Encrypt CA certificates into
-`/etc/swanctl/x509ca`, creates the `wsike` group, and enables `wsike-daemon.service`.
+GTK/libadwaita bindings. It also links the ISRG (Let's Encrypt) root certificates
+into `/etc/swanctl/x509ca`. Windscribe servers send their own intermediate
+certificates, so no downloads are needed. Finally it creates the `wsike` group,
+gives the invoking user access, and enables `wsike-daemon.service`.
+
+Options:
+
+- `sudo ./install.sh --update` refreshes wsike's own files and restarts the daemon, without apt.
+- `sudo ./install.sh --user NAME` grants access to another desktop user.
+
+### Supported systems
+
+- **Tested:** Ubuntu 26.10 (GNOME, NetworkManager, systemd-resolved). A clean
+  install was also checked in a fresh `ubuntu:26.10` container.
+- **Expected to work:** Ubuntu 24.04 or newer and Debian 13 or newer: any apt-based
+  system with systemd, nftables, strongSwan 5.9 or newer and libadwaita 1.5 or newer.
+  The installer checks these and stops with a clear message if something is missing.
+- **Without systemd-resolved,** DNS is written to `/etc/resolv.conf` while connected
+  and restored afterwards.
+- **Conflicts:** the classic `strongswan-starter`/`ipsec` service and other IKE
+  daemons use the same ports (UDP 500/4500). Running another VPN at the same time
+  will also interfere with routing and DNS.
 
 ## Setup
 

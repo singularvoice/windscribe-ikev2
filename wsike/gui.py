@@ -455,6 +455,8 @@ class MainWindow(Adw.ApplicationWindow):
                    f"↓ {human_bytes(st.get('rx', 0))}  ↑ {human_bytes(st.get('tx', 0))}")
         elif state == "error":
             sub = st.get("error") or "Error"
+            if st.get("firewall") and st.get("firewall_mode") == "automatic":
+                sub += "\nFirewall is still blocking traffic; turn it off to go online without the VPN."
         elif state == "reconnecting":
             sub = "Connection lost, reconnecting… (traffic blocked)" if st.get("firewall") else \
                 "Connection lost, reconnecting…"

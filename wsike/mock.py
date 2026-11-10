@@ -27,12 +27,12 @@ class MockBackend:
         self.up = False
         self.server_ip = None
 
-    def reinitiate(self, timeout=20):
-        self.up = True
-        return True
+    def abort(self):
+        self.up = False
 
-    def setup_dns(self, custom_dns=()):
-        pass
+    def reinitiate(self, custom_dns=(), timeout=15):
+        self.up = True
+        return {"vip": "10.111.0.24", "dns": list(custom_dns) or ["10.255.255.1"]}
 
     def is_up(self):
         return self.up

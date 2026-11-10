@@ -41,18 +41,26 @@ def _swan_str(value):
 
 
 def friendly_error(output):
+    """Map charon/swanctl output of a failed initiate to a user-facing message.
+
+    Only match failure markers: lines like "authentication of ... with EAP"
+    appear in every attempt and must not be mistaken for a failure.
+    """
     o = output.lower()
-    if "eap" in o and ("fail" in o or "authentication" in o):
+    if ("eap_failure" in o or "eap authentication failed" in o or "authentication_failed" in o
+            or re.search(r"eap method \S+ failed", o)):
         return ("Authentication failed. Use the IKEv2 username/password from Windscribe's "
                 "IKEv2 config generator (they are not your Windscribe login).")
-    if "authentication of" in o and "failed" in o or "constraint check failed" in o \
-            or "no trusted" in o or "issuer certificate" in o:
+    if ("constraint check failed" in o or "no trusted" in o or "no issuer certificate" in o
+            or re.search(r"authentication of '[^']*' with \S+ failed", o)):
         return "Server certificate could not be verified (check the server hostname and the CA certificates)."
     if "no_proposal_chosen" in o:
         return "Server rejected all encryption proposals."
-    if "retransmit" in o and "giving up" in o or "timeout" in o:
+    if "ts_unacceptable" in o:
+        return "Server rejected the requested traffic selectors."
+    if "giving up after" in o or "initiate failed: timeout" in o or "timed out" in o:
         return "Server did not respond (UDP 500/4500 blocked or server down)."
-    if "no such file" in o and "vici" in o or "connecting to" in o and "failed" in o:
+    if "vici" in o and ("no such file" in o or "connection refused" in o):
         return "strongSwan (charon) is not running."
     lines = [l for l in output.strip().splitlines() if l.strip()]
     return lines[-1] if lines else "connection failed"
@@ -62,9 +70,7 @@ class StrongSwanBackend:
     def __init__(self, log):
         self.log = log
         self.server_ip = None
-        self.dns_mode = None          # "resolved" | "file"
         self.dns_servers = []
-        self.extra_rules = []          # (priority, args) rules to delete on teardown
 
     # ------------------------------------------------------------------ helpers
     def ensure_charon(self):
@@ -223,6 +229,9 @@ secrets {{
             self.log("VPN pushed no DNS server; falling back to 1.1.1.1 through the tunnel")
             servers = ["1.1.1.1"]
         self.dns_servers = servers
+        for _ in range(64):              # idempotent: drop rules from a previous call
+            if run(["ip", "-4", "rule", "del", "priority", str(RULE_PRIO_DNS)], check=False).returncode:
+                break
         # Make sure DNS servers are always reached through the tunnel, even when
         # they sit inside a range that also exists on the LAN.
         for ip in servers:
@@ -231,7 +240,6 @@ secrets {{
 
         resolved = "systemd/resolve" in os.path.realpath("/etc/resolv.conf") and shutil.which("resolvectl")
         if resolved:
-            self.dns_mode = "resolved"
             run(["resolvectl", "dns", IFACE, *servers])
             run(["resolvectl", "domain", IFACE, "~."])
             run(["resolvectl", "default-route", IFACE, "yes"], check=False)
@@ -240,7 +248,6 @@ secrets {{
             run(["resolvectl", "mdns", IFACE, "no"], check=False)
             run(["resolvectl", "flush-caches"], check=False)
         else:
-            self.dns_mode = "file"
             os.makedirs(os.path.dirname(RESOLV_BACKUP), exist_ok=True)
             if not os.path.exists(RESOLV_BACKUP):
                 shutil.copy2("/etc/resolv.conf", RESOLV_BACKUP, follow_symlinks=True)
@@ -248,7 +255,7 @@ secrets {{
             with open(target, "w") as f:
                 f.write("# written by wsike while the VPN is connected\n")
                 f.write("".join(f"nameserver {ip}\n" for ip in servers))
-        self.log(f"DNS ({self.dns_mode}): {', '.join(servers)}")
+        self.log(f"DNS ({'resolved' if resolved else 'resolv.conf'}): {', '.join(servers)}")
 
     def restore_dns(self):
         if netutil.iface_exists(IFACE):
@@ -269,10 +276,24 @@ secrets {{
             run(["ip", "link", "del", IFACE], check=False)
         self.server_ip = None
 
-    def reinitiate(self, timeout=20):
+    def abort(self):
+        """Tear down the IKE_SA right away; makes a pending initiate return."""
+        if shutil.which("swanctl"):
+            run(["swanctl", "--terminate", "--ike", CONN_NAME, "--force", "--timeout", "2"],
+                check=False, timeout=10)
+
+    def reinitiate(self, custom_dns=(), timeout=15):
+        """Re-establish a dropped SA on the existing interface/routing.
+
+        Returns the new {"vip", "dns"} or None. The old SA's teardown made
+        charon remove its DNS settings from wsike0, so DNS is applied again.
+        """
         p = run(["swanctl", "--initiate", "--ike", CONN_NAME, "--child", CONN_NAME,
                  "--timeout", str(timeout)], check=False, timeout=timeout + 10)
-        return p.returncode == 0 and self.is_up()
+        if p.returncode != 0 or not self.is_up():
+            return None
+        self.setup_dns(custom_dns)
+        return {"vip": netutil.iface_ipv4(IFACE), "dns": self.dns_servers}
 
     def is_up(self):
         p = run(["swanctl", "--list-sas", "--ike", CONN_NAME], check=False, timeout=10)

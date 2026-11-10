@@ -147,12 +147,15 @@ def _cache_store(hostname, ips):
         pass
 
 
-def resolve(hostname, timeout=6.0):
-    """Resolve hostname -> IPv4 list, bypassing tunnel and firewall.
+def resolve(hostname, timeout=6.0, bypass=True):
+    """Resolve hostname -> IPv4 list.
 
-    Queries every upstream DNS server (marked sockets) and the system resolver
-    in parallel, takes the first answer, and falls back to the last known
-    addresses when nothing answers.
+    bypass=True (tunnel not up): query every upstream DNS server with marked
+    sockets (passing the kill switch) and the system resolver in parallel and
+    take the first answer.
+    bypass=False (tunnel up): only use the system resolver, i.e. the VPN's DNS
+    through the tunnel, so no lookup leaves outside of it.
+    Falls back to the last known addresses when nothing answers.
     """
     if is_ip(hostname):
         return [hostname]
@@ -177,7 +180,7 @@ def resolve(hostname, timeout=6.0):
             result.put(("err", f"system: {e}"))
 
     workers = [threading.Thread(target=via_server, args=(srv,), daemon=True)
-               for srv in upstream_dns_servers()]
+               for srv in (upstream_dns_servers() if bypass else [])]
     workers.append(threading.Thread(target=via_system, daemon=True))
     for w in workers:
         w.start()
