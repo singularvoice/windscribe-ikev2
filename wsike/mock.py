@@ -34,5 +34,11 @@ class MockBackend:
         self.up = True
         return {"vip": "10.111.0.24", "dns": list(custom_dns) or ["10.255.255.1"]}
 
+    def routes_ok(self):
+        return True
+
+    def repair_routes(self, custom_dns=()):
+        pass
+
     def is_up(self):
         return self.up

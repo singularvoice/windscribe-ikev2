@@ -71,6 +71,7 @@ class StrongSwanBackend:
         self.log = log
         self.server_ip = None
         self.dns_servers = []
+        self.routing = ("off", ())      # (split_mode, split_v4) of the current tunnel
 
     # ------------------------------------------------------------------ helpers
     def ensure_charon(self):
@@ -197,6 +198,7 @@ secrets {{
         return {"server_ip": self.server_ip, "vip": vip, "dns": self.dns_servers}
 
     def setup_routing(self, split_mode, split_v4):
+        self.routing = (split_mode, tuple(split_v4))
         self._flush_rules()
         if split_mode == "inclusive":
             for net in split_v4:
@@ -292,8 +294,24 @@ secrets {{
                  "--timeout", str(timeout)], check=False, timeout=timeout + 10)
         if p.returncode != 0 or not self.is_up():
             return None
+        # When charon removed the virtual IP of the old SA, the kernel flushed
+        # every route through wsike0, so the routing has to be rebuilt.
+        self.setup_routing(*self.routing)
         self.setup_dns(custom_dns)
         return {"vip": netutil.iface_ipv4(IFACE), "dns": self.dns_servers}
+
+    def routes_ok(self):
+        """True when the tunnel routing table still has its routes."""
+        split_mode, split_v4 = self.routing
+        p = run(["ip", "-4", "route", "show", "table", str(ROUTE_TABLE)], check=False)
+        if split_mode == "inclusive":
+            return all(net.split("/")[0] in p.stdout for net in split_v4)
+        return p.stdout.startswith("default ") or "\ndefault " in p.stdout
+
+    def repair_routes(self, custom_dns=()):
+        self.log("tunnel routes were missing; restoring them")
+        self.setup_routing(*self.routing)
+        self.setup_dns(custom_dns)
 
     def is_up(self):
         p = run(["swanctl", "--list-sas", "--ike", CONN_NAME], check=False, timeout=10)

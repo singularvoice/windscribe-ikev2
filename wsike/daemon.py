@@ -267,6 +267,8 @@ class Daemon:
                 continue
             try:
                 if self.backend.is_up():
+                    if not self.backend.routes_ok():
+                        self.backend.repair_routes(self.settings.get("custom_dns") or [])
                     if self.state == "reconnecting":
                         self.set_state("connected")
                     failures = 0
