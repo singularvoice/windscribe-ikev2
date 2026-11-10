@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=wsike VPN
+GenericName=IKEv2 VPN client
+Comment=Windscribe IKEv2 client with firewall and leak protection
+Exec=wsike
+Icon=wsike
+Terminal=false
+Categories=Network;Security;
+Keywords=vpn;ikev2;windscribe;ipsec;
+StartupWMClass=com.github.wsike

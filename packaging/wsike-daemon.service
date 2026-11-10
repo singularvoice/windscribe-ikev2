@@ -1,0 +1,20 @@
+[Unit]
+Description=wsike IKEv2 VPN daemon (Windscribe)
+# Start before networking so an "Always on" firewall is in place before any
+# interface comes up. strongSwan is started on demand by the daemon.
+Wants=network-pre.target
+Before=network-pre.target
+After=nftables.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 -I /opt/wsike/bin/wsike-daemon
+Restart=on-failure
+RestartSec=2
+RuntimeDirectory=wsike
+RuntimeDirectoryPreserve=yes
+StateDirectory=wsike
+StateDirectoryMode=0700
+
+[Install]
+WantedBy=multi-user.target
