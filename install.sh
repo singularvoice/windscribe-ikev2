@@ -55,8 +55,9 @@ if [[ $UPDATE -eq 0 ]]; then
        or use '--update' to only refresh wsike's own files."
   fi
   echo "==> Installing dependencies"
-  apt-get update -qq
-  DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+  apt-get -o Acquire::Retries=3 update -qq \
+    || warn "apt-get update reported errors (mirror sync?); continuing with the existing package lists"
+  DEBIAN_FRONTEND=noninteractive apt-get -o Acquire::Retries=3 install -y --no-install-recommends \
     charon-systemd strongswan-swanctl libcharon-extauth-plugins libcharon-extra-plugins \
     libstrongswan-standard-plugins nftables iproute2 ca-certificates \
     python3 python3-gi gir1.2-gtk-4.0 gir1.2-adw-1
