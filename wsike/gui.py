@@ -19,6 +19,7 @@ from .common import DaemonError, request  # noqa: E402
 APP_ID = "com.github.wsike"
 CONFIG_DIR = os.path.join(GLib.get_user_config_dir(), "wsike")
 SERVERS_FILE = os.path.join(CONFIG_DIR, "servers.json")
+UI_FILE = os.path.join(CONFIG_DIR, "ui.json")
 
 COUNTRY_NAMES = {
     "us": "United States", "ca": "Canada", "gb": "United Kingdom", "uk": "United Kingdom",
@@ -218,6 +219,7 @@ class MainWindow(Adw.ApplicationWindow):
         self.selected = None
         self.daemon_ok = None
         self.only_favs = False
+        self.sort_latency = self.load_ui().get("sort") == "latency"
         self._fw_updating = False
 
         self.toast = Adw.ToastOverlay()
@@ -313,6 +315,11 @@ class MainWindow(Adw.ApplicationWindow):
                          tooltip_text="Add location")
         add.connect("clicked", lambda *_: self.add_server_dialog())
         tabs.append(add)
+        self.sort_btn = Gtk.ToggleButton(icon_name="view-sort-ascending-symbolic", active=self.sort_latency,
+                                         css_classes=["flat", "circular"])
+        self.sort_btn.connect("toggled", self.on_sort_toggled)
+        self.update_sort_tooltip()
+        tabs.append(self.sort_btn)
         ping_btn = Gtk.Button(icon_name="view-refresh-symbolic", css_classes=["flat", "circular"],
                               tooltip_text="Measure latency")
         ping_btn.connect("clicked", lambda *_: self.refresh_pings())
@@ -345,13 +352,44 @@ class MainWindow(Adw.ApplicationWindow):
     # ------------------------------------------------------------------ list
     def rebuild_list(self):
         self.listbox.remove_all()
-        servers = sorted(self.store.servers, key=lambda s: (not s.get("favorite"), s["name"].lower()))
+        servers = sorted(self.store.servers, key=self.sort_key)
         for s in servers:
             row = ServerRow(s, self.toggle_fav, self.confirm_delete)
             row.set_ping(self.pings.get(s["hostname"]))
             if self.selected and s["hostname"] == self.selected["hostname"]:
                 row.add_css_class("active")
             self.listbox.append(row)
+
+    def sort_key(self, s):
+        name = s["name"].lower()
+        if self.sort_latency:
+            ms = self.pings.get(s["hostname"])
+            # unmeasured / failed pings sort to the bottom, then by name
+            return (ms is None, ms if ms is not None else 0, name)
+        return (not s.get("favorite"), name)
+
+    def load_ui(self):
+        try:
+            with open(UI_FILE) as f:
+                data = json.load(f)
+            return data if isinstance(data, dict) else {}
+        except (OSError, ValueError):
+            return {}
+
+    def update_sort_tooltip(self):
+        self.sort_btn.set_tooltip_text("Sorted by latency (click for name)" if self.sort_latency
+                                       else "Sorted by name (click for latency)")
+
+    def on_sort_toggled(self, btn):
+        self.sort_latency = btn.get_active()
+        self.update_sort_tooltip()
+        try:
+            os.makedirs(CONFIG_DIR, exist_ok=True)
+            with open(UI_FILE, "w") as f:
+                json.dump({**self.load_ui(), "sort": "latency" if self.sort_latency else "name"}, f)
+        except OSError:
+            pass
+        self.rebuild_list()
 
     def filter_row(self, row):
         s = row.server
@@ -420,6 +458,9 @@ class MainWindow(Adw.ApplicationWindow):
             if err or not res:
                 return
             self.pings.update(res)
+            if self.sort_latency:
+                self.rebuild_list()
+                return
             child = self.listbox.get_first_child()
             while child:
                 if isinstance(child, ServerRow):
